@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grafo de la Ruta de Planificación Inteligente</title>
+    <!-- Carga de Tailwind CSS para estilos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- Carga de vis.js para dibujar el grafo -->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        /* Estilos personalizados para el contenedor del grafo */
+        #grafo-container {
+            width: 100%;
+            height: 600px; /* Aumentado para el grafo jerárquico */
+            border: 2px solid #3b82f6;
+            border-radius: 0.75rem;
+            margin-top: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            background-color: #f8fafc;
+        }
+        .info-card {
+            border-left: 4px solid #f97316;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-6 sm:p-10 font-sans">
+
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-2">
+            Ruta de Planificación $S_0$ a Meta (Grafo de Estados y Acciones)
+        </h1>
+        <p class="text-lg text-gray-600 mb-6">
+            Este grafo visualiza la secuencia de **Estados** y **Acciones** necesarias para pasar del estado inicial ($S_0$) a la Meta.
+        </p>
+
+        <!-- Explicación de la Lógica del Grafo -->
+        <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-3 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd"></path></svg>
+                Lógica del Plan
+            </h2>
+            <div class="space-y-4 text-gray-700">
+                <p>El plan asume una secuencia de movimientos para llevar los cubos a la zona de transferencia (`d1` / `d2`) y luego al destino final (`d3`):</p>
+                <ul class="list-disc list-inside ml-4 space-y-1">
+                    <li>**Nodos de Estado (Azul):** Representan la ubicación de los cubos en un momento dado (e.g., $S_0$).</li>
+                    <li>**Nodos de Acción (Naranja):** Representan el uso de los operadores $r_1$ o $r_2$ (los robots/grúas) para cambiar el estado.</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Contenedor del Grafo -->
+        <h2 class="text-2xl font-bold text-gray-800 mt-6 mb-3">Grafo de la Secuencia de Planificación</h2>
+        <div id="grafo-container"></div>
+        
+        <!-- Instrucciones para draw.io -->
+        <div class="info-card bg-yellow-50 p-4 mt-8 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Instrucciones para replicar en draw.io:</h3>
+            <ol class="list-decimal list-inside ml-4 space-y-1 text-gray-700">
+                <li>Utiliza formas rectangulares (o cajas) de color **Azul** para los **Estados** ($S_0$, $S_1$, $S_2$, Meta).</li>
+                <li>Utiliza formas de diamante o pentágono de color **Naranja** para las **Acciones** ($r1$, $r2$).</li>
+                <li>Conecta los nodos secuencialmente con **flechas dirigidas** de **Estado → Acción → Estado** para mostrar el flujo de la solución.</li>
+            </ol>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            // 1. Crear Nodos: Estados (Box, Azul) y Acciones (Diamond, Naranja)
+            const nodes = new vis.DataSet([
+                { id: 1, label: 'S0 (Inicial)\n{c1, c2 en p1; c3 en p2}', group: 'State' },
+                { id: 2, label: 'ACCIÓN: r1 (Mover c1, c2 de p1 a d1)', group: 'Action' },
+                { id: 3, label: 'S1\n{c1, c2 en d1; c3 en p2}', group: 'State' },
+                { id: 4, label: 'ACCIÓN: Transferir (d1 a d2) y Mover c3 a d2', group: 'Action' },
+                { id: 5, label: 'S2\n{c1, c2, c3 en d2}', group: 'State' },
+                { id: 6, label: 'ACCIÓN: r2 (Mover todos de d2 a d3)', group: 'Action' },
+                { id: 7, label: 'META (Final)\n{c1, c2, c3 en d3}', group: 'Goal' }
+            ]);
+
+            // 2. Crear Aristas: Secuencia del plan
+            const edges = new vis.DataSet([
+                { from: 1, to: 2, arrows: 'to', color: { color: '#4b5563' } },
+                { from: 2, to: 3, arrows: 'to', color: { color: '#4b5563' } },
+                { from: 3, to: 4, arrows: 'to', color: { color: '#4b5563' } },
+                { from: 4, to: 5, arrows: 'to', color: { color: '#4b5563' } },
+                { from: 5, to: 6, arrows: 'to', color: { color: '#4b5563' } },
+                { from: 6, to: 7, arrows: 'to', color: { color: '#4b5563' } }
+            ]);
+
+            // 3. Configurar los grupos de estilo (Fondos más claros y texto negro para contraste)
+            const groups = {
+                State: {
+                    shape: 'box',
+                    color: { background: '#93c5fd', border: '#3b82f6' }, // Light Blue
+                    font: { color: '#000000', face: 'Inter' } // Texto negro
+                },
+                Action: {
+                    shape: 'diamond',
+                    color: { background: '#fdba74', border: '#f97316' }, // Light Orange
+                    font: { color: '#000000', face: 'Inter' } // Texto negro
+                },
+                Goal: {
+                    shape: 'box',
+                    color: { background: '#6ee7b7', border: '#10b981' }, // Light Green
+                    font: { color: '#000000', face: 'Inter' } // Texto negro
+                }
+            };
+
+
+            // 4. Crear los datos del grafo
+            const data = {
+                nodes: nodes,
+                edges: edges
+            };
+
+            // 5. Configurar las opciones del grafo (Texto global en negro)
+            const options = {
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        direction: 'UD', // De arriba a abajo (Up-Down)
+                        sortMethod: 'directed',
+                        levelSeparation: 100
+                    }
+                },
+                physics: {
+                    enabled: false, 
+                },
+                groups: groups,
+                nodes: {
+                    font: { size: 14, color: '#000000' }, // Aseguramos texto negro
+                    margin: 10,
+                    shadow: true
+                },
+                edges: {
+                    arrows: { to: true },
+                    width: 2,
+                    smooth: { enabled: true }
+                }
+            };
+
+            // 6. Inicializar el Grafo
+            const container = document.getElementById('grafo-container');
+            new vis.Network(container, data, options);
+        });
+    </script>
+</body>
+</html>
